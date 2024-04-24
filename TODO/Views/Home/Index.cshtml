@@ -1,0 +1,246 @@
+﻿@model IEnumerable<TODO.Core.Models.Item>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToDo List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        li:last-child {
+            border-bottom: none;
+        }
+
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .completed {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+        .delete-icon {
+          cursor: pointer;
+        }
+        
+        .delete-icon i {
+          color: #aaa; /* Light color */
+          transition: color 0.3s ease;
+        }
+        
+        .delete-icon:hover i {
+          color: #333; /* Dark color on hover */
+        }
+        
+        .todo-item {
+          display: flex;
+          align-items: center;
+        }
+        
+        .todo-item input[type="checkbox"] {
+          margin-right: 10px;
+        }
+        
+        .todo-item .title {
+          flex: 1;
+        }
+        
+        .todo-item .delete-icon {
+          margin-left: 10px;
+        }
+        
+        .button-container {
+          margin-top: 10px;
+        }
+        
+        .button-container button {
+          margin-right: 10px;
+        }
+        
+        .input-container {
+          display: flex;
+          margin-bottom: 10px;
+        }
+        
+        .input-container input[type="text"] {
+          flex: 1;
+          margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>ToDo List</h1>
+    <div id="app"></div>
+</div>
+
+<script type="importmap">
+  {
+    "imports": {
+      "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+    }
+  }
+</script>
+<div id="app"></div>
+<script type="module">
+    import { createApp, onMounted, ref } from 'vue'
+    
+    const app = createApp({
+        name: 'App',
+        setup() {
+            const todoItems = ref([])
+            const newTitle = ref("")
+            
+            onMounted(() => {
+                fetchTodoItems();
+            })
+            
+            async function fetchTodoItems() {
+                try {
+                    const response = await fetch('/api/todo');
+                    const data = await response.json();
+                    todoItems.value = data;
+                } catch (error) {
+                    console.error('Error fetching TODO items:', error);
+                }
+            }
+            
+            async function addItem() {
+                try {
+                    if (newTitle.value.trim() !== '') {
+                        await fetch('/api/todo', {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                title: newTitle.value,
+                                isCompleted: false 
+                            })
+                        });
+                        await fetchTodoItems();
+                        newTitle.value = ''; 
+                    }
+                } catch (error) {
+                    console.error('Error adding item:', error);
+                }
+            }
+            
+            async function deleteItem(itemId) {
+                try {
+                    await fetch(`/api/todo/${itemId}`, {
+                        method: 'DELETE'
+                    });
+                    await fetchTodoItems();
+                } catch (error) {
+                    console.error('Error deleting item:', error);
+                }
+            }
+            
+            async function updateCompletion(item) {
+                try {
+                    await fetch(`/api/todo/${item.id}`, {
+                        method: 'PUT'
+                    });
+                    await fetchTodoItems();
+                } catch (error) {
+                    console.error('Error updating completion status:', error);
+                }
+            }
+           
+            async function clear() {
+                try {
+                    await fetch(`/api/todo/clear`, {
+                        method: 'DELETE'
+                    });
+                    await fetchTodoItems();
+                } catch (error) {
+                    console.error('Error updating completion status:', error);
+                }
+            }
+            
+            return { todoItems, newTitle, fetchTodoItems, addItem,  deleteItem, updateCompletion, clear }
+        },
+       template: `
+            <div>
+                <ul>
+                  <li v-for="item in todoItems" :key="item.id" class="todo-item">
+                    <input type="checkbox" v-model="item.isCompleted" v-on:change="updateCompletion(item)">
+                    <span :class="{ completed: item.isCompleted }" class="title">{{ item.title }}</span>
+                    <span class="delete-icon" v-on:click="deleteItem(item.id)">
+                      <i class="fas fa-trash-alt"></i>
+                    </span>
+                  </li>
+                </ul>
+                <div class="button-container">
+                  <div class="input-container">
+                    <input type="text" v-model="newTitle" placeholder="Add new item...">
+                    <button v-on:click="addItem">Add</button>
+                    <button v-on:click="clear">Clear All</button>
+                  </div>
+                </div>
+              </div>
+       `
+    })
+    app.mount('#app')
+
+</script>
+</body>
+</html>
